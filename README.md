@@ -10,14 +10,16 @@ Mainly intended to be used by Prometheus to scrape metrics from a remote server
 
 ```shell
 ./gradlew build
-./gradlew runReleaseExecutableNative
+# ./gradlew runReleaseExecutableNative
+./build/bin/native/releaseExecutable/http-over-ssh.kexe
+
 ```
 
-Then in a browser enter a url like this: 
+Then in a browser enter an url like this: 
 `http://localhost:6060/ubuntu@ladder.kgignatyev.com/localhost:7070/api/public/mgmt`
 
-This will create a SSH connection to `ladder.kgignatyev.com` with port forwarding from `localhost:7070` 
-a <local port>, then make a HTTP request to `localhost:<local port>/api/public/mgmt` and return the response.
+This will create an SSH connection to `ladder.kgignatyev.com` with port forwarding from `localhost:7070` 
+a <local port>, then make an HTTP request to `localhost:<local port>/api/public/mgmt` and return the response.
 
 
 

@@ -43,6 +43,7 @@ kotlin {
                 implementation("io.ktor:ktor-client-core:$ktor_version")
                 implementation("io.ktor:ktor-client-cio:$ktor_version")
                 implementation("com.kgit2:kommand:2.0.1")
+                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.5.0")
 
             }
         }
