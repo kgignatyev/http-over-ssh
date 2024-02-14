@@ -1,13 +1,18 @@
 plugins {
-    kotlin("multiplatform") version "1.9.20-RC2"
+    kotlin("multiplatform") version "1.9.22"
 }
 
-group = "me.user"
-version = "1.0-SNAPSHOT"
+group = "com.kgignatyev"
+version = "1.0.0"
+
+
 
 repositories {
     mavenCentral()
+    maven { url = uri("https://maven.pkg.jetbrains.space/public/p/ktor/eap") }
 }
+
+
 
 kotlin {
     val hostOs = System.getProperty("os.name")
@@ -30,7 +35,23 @@ kotlin {
         }
     }
     sourceSets {
-        val nativeMain by getting
-        val nativeTest by getting
+        val ktor_version="2.3.8"
+        val nativeMain by getting {
+            dependencies {
+                implementation("io.ktor:ktor-server-core:$ktor_version")
+                implementation("io.ktor:ktor-server-cio:$ktor_version")
+                implementation("io.ktor:ktor-client-core:$ktor_version")
+                implementation("io.ktor:ktor-client-cio:$ktor_version")
+                implementation("com.kgit2:kommand:2.0.1")
+
+            }
+        }
+        val nativeTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation("io.ktor:ktor-server-test-host:$ktor_version")
+            }
+        }
     }
+
 }
