@@ -1,0 +1,9 @@
+headers = libssh/libssh.h
+headerFilter = libssh/*
+package = org.ssh
+
+compilerOpts.osx = -I/usr/include -I/opt/homebrew/Cellar/libssh/0.10.6/include
+linkerOpts.osx = -L/opt/homebrew/Cellar/libssh/0.10.6/lib -lssh
+
+compilerOpts.linux = -I/usr/include -I/usr/include/x86_64-linux-gnu
+linkerOpts.linux = -L/usr/lib/x86_64-linux-gnu -lssh

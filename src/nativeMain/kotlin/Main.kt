@@ -19,27 +19,29 @@ import platform.posix.*
 import kotlinx.coroutines.*
 
 
-data class PortForwardingSSH(val proc:Child, val localPort:Int, var lastUsedAt: Long)
+data class PortForwardingSSH(val proc: Child, val localPort: Int, var lastUsedAt: Long)
 
 var next_portforward_port = 10000
 
-val sshProcesses = mutableMapOf<String,PortForwardingSSH>()
+val sshProcesses = mutableMapOf<String, PortForwardingSSH>()
+
+val sshHandler = SSHHandler()
 
 @OptIn(ExperimentalForeignApi::class)
-val cleanup = staticCFunction<Int,Unit>(  ){
+val cleanup = staticCFunction<Int, Unit>() {
     println("Got $it")
-    sshProcesses.forEach { me->
-        try{
+    sshProcesses.forEach { me ->
+        try {
             println("Killing ${me.key}")
             me.value.proc.kill()
-        }catch (e:Exception){
+        } catch (e: Exception) {
             e.printStackTrace()
         }
     }
 }
 
-fun removeUnused( millisecondsAgo:Long){
-    val cutoffTime = Clock.System.now().epochSeconds - (millisecondsAgo/1000)
+fun removeUnused(millisecondsAgo: Long) {
+    val cutoffTime = Clock.System.now().epochSeconds - (millisecondsAgo / 1000)
     sshProcesses.filter { p -> p.value.lastUsedAt < cutoffTime }.forEach { entry ->
         println("Deleting unused process:${entry.key}")
         entry.value.proc.kill()
@@ -66,6 +68,7 @@ fun main() {
         .start(wait = true)
 
 }
+
 val client = HttpClient(io.ktor.client.engine.cio.CIO)
 
 
@@ -78,46 +81,58 @@ fun Application.module() {
             println(targetHost)
             val uri = this.context.request.uri
             println(uri)
-            val sshProcess = portForwardingSSH(sshdHost,targetHost)
-            try {
-                val localPort = sshProcess.localPort
-                val uriToCall = uri.substring(sshdHost.length + targetHost.length + 2)
-                val urlToCall = "http://localhost:$localPort$uriToCall"
-                println("calling $urlToCall \n")
-                val response = client.get(urlToCall)
-                call.respondText(response.bodyAsText())
-            }catch (e:Exception){
-                e.printStackTrace()
-                //possibly the ssh channel is closed, let's recreate
-                val keys = sshProcesses.filter { p -> p.value.proc.id() == sshProcess.proc.id() }.map {
-                  it.key
-                }
-                keys.forEach {
-                    println( "Killing and removing suspect process:$it")
-                    sshProcesses[it]?.proc?.kill()
-                    sshProcesses.remove(it)
-                }
-                call.respond(HttpStatusCode.InternalServerError)
+            val targetHostParts = targetHost.split(":")
+            val tHost = targetHostParts[0]
+            val tPort = if (targetHostParts.size == 1) {
+                80
+            } else {
+                targetHostParts[1].toInt()
             }
+            val coroutineScope = CoroutineScope(coroutineContext)
+            sshHandler.createSSHConnection(sshdHost, tHost, tPort) { pfPort ->
+                println("Port forwarding to $pfPort")
+                if (pfPort == -1) {
+                    coroutineScope.launch {
+                        call.respond(HttpStatusCode.InternalServerError)
+                    }
+                } else {
+                    try {
+                        val uriToCall = uri.substring(sshdHost.length + targetHost.length + 2)
+                        val urlToCall = "http://localhost:$pfPort$uriToCall"
+                        println("calling $urlToCall \n")
+                        coroutineScope.launch {
+                            val response = client.get(urlToCall)
+                            call.respondText(response.bodyAsText())
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        coroutineScope.launch {
+                            call.respond(HttpStatusCode.InternalServerError)
+                        }
+                    }
+                }
+            }
+
+
         }
     }
 }
 
 
-fun portForwardingSSH(sshd_host:String, target_host:String): PortForwardingSSH {
+fun portForwardingSSH(sshd_host: String, target_host: String): PortForwardingSSH {
     val portforwardPort = next_portforward_port++
-    val key = sshd_host+ "/" + target_host
+    val key = sshd_host + "/" + target_host
     val child = sshProcesses.getOrPut(key) {
-        println( )
+        println()
         val ssh = Command("ssh")
             .arg("-tt")
             .args(listOf("-L", "$portforwardPort:$target_host", sshd_host))
             .spawn()
         sleep(1u)
-        PortForwardingSSH(ssh,portforwardPort,0)
+        PortForwardingSSH(ssh, portforwardPort, 0)
     }
 
-    child.lastUsedAt  = Clock.System.now().epochSeconds
+    child.lastUsedAt = Clock.System.now().epochSeconds
 
     return child
 }

@@ -28,6 +28,11 @@ kotlin {
     }
 
     nativeTarget.apply {
+        compilations["main"].cinterops {
+            val libssh by creating {
+                defFile("src/nativeMain/ssh.def")
+            }
+        }
         binaries {
             executable {
                 entryPoint = "main"
