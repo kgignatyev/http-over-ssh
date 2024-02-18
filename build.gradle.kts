@@ -40,7 +40,7 @@ kotlin {
         }
     }
     sourceSets {
-        val ktor_version="2.3.8"
+        val ktor_version = "2.3.8"
         val nativeMain by getting {
             dependencies {
                 implementation("io.ktor:ktor-server-core:$ktor_version")
@@ -59,5 +59,7 @@ kotlin {
             }
         }
     }
+
+
 
 }

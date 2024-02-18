@@ -75,7 +75,10 @@ val client = HttpClient(io.ktor.client.engine.cio.CIO)
 fun Application.module() {
     routing {
         get("/{ssh_host}/{target_host}/{...}") {
-            val sshdHost = this.context.parameters["ssh_host"]!!
+            val sshdUserHost = this.context.parameters["ssh_host"]!!
+            val userHostParts = sshdUserHost.split("@")
+            val sshdHost = userHostParts[1]
+            val sshdUser = userHostParts[0]
             val targetHost = this.context.parameters["target_host"]!!
             println(sshdHost)
             println(targetHost)
@@ -89,7 +92,7 @@ fun Application.module() {
                 targetHostParts[1].toInt()
             }
             val coroutineScope = CoroutineScope(coroutineContext)
-            sshHandler.createSSHConnection(sshdHost, tHost, tPort) { pfPort ->
+            sshHandler.createSSHConnection(sshdHost,sshdUser, tHost, tPort) { pfPort ->
                 println("Port forwarding to $pfPort")
                 if (pfPort == -1) {
                     coroutineScope.launch {
