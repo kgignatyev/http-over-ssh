@@ -100,7 +100,7 @@ fun Application.module() {
                     }
                 } else {
                     try {
-                        val uriToCall = uri.substring(sshdHost.length + targetHost.length + 2)
+                        val uriToCall = uri.substring(sshdUserHost.length + targetHost.length + 2)
                         val urlToCall = "http://localhost:$pfPort$uriToCall"
                         println("calling $urlToCall \n")
                         coroutineScope.launch {

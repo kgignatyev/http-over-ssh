@@ -13,7 +13,7 @@ class ApplicationTest {
         application {
             module()
         }
-        client.get("/ubuntu@ladder.kgignatyev.com/127.0.0.1:7070/api/public/mgmt").apply {
+        client.get("/ubuntu@ladder.kgignatyev.com/localhost:7070/api/public/mgmt").apply {
             assertEquals(HttpStatusCode.OK, status)
 //            assertEquals("Hello World!", bodyAsText())
             println(bodyAsText())

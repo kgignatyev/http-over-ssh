@@ -2,6 +2,8 @@
 
 import kotlinx.cinterop.*
 import org.ssh.*
+import platform.posix.size_tVar
+import platform.posix.sleep
 
 
 @OptIn(ExperimentalForeignApi::class)
@@ -18,7 +20,7 @@ class SSHHandler {
             val port = alloc<IntVar>()
             port.value = 22
             val verbosity = alloc<UIntVar>()
-            verbosity.value = SSH_LOG_PROTOCOL.toUInt()
+            verbosity.value = SSH_LOG_TRACE.toUInt()
             val localPort = 5555
             var rc = 0
             try {
@@ -40,8 +42,30 @@ class SSHHandler {
                 } else {
                     println("Failed to connect: ${ssh_get_error(session)?.toKStringFromUtf8()}")
                 }
-//                val sshk = ssh_key_new()
-//                rc = ssh_get_server_publickey(session, sshk.getPointer(ms) )
+                val key  = alloc<ssh_keyVar>()
+
+                if (ssh_get_server_publickey(session, key.ptr) != SSH_OK) {
+                    error("Failed to get server public key")
+                }
+                val keyV = key.value!!
+
+                val hashPtrVar = alloc<CPointerVar<UByteVar>>()
+                val hashLenVar = alloc<size_tVar>()
+                if (ssh_get_publickey_hash(keyV,
+                        ssh_publickey_hash_type.SSH_PUBLICKEY_HASH_SHA256, hashPtrVar.ptr, hashLenVar.ptr) != SSH_OK) {
+                    error("Failed to get public key hash")
+                }
+                val hashPtr = hashPtrVar.value!!
+                val hashLen = hashLenVar.value
+
+                // Now you can use hashPtr for verification purposes, for example, print the hash
+                println("Public Key Hash (SHA256):")
+                for (i in 0 until hashLen.toInt()) {
+                    print(hashPtr[i].toInt() and 0xff)
+                }
+                if(ssh_userauth_autopubkey(session, null) != SSH_OK) {
+                    error("Failed to authenticate")
+                }
                 val forwarding_channel = ssh_channel_new(session)
                 if (forwarding_channel == null) {
                     println("Failed to create forwarding channel, is null")
@@ -55,6 +79,8 @@ class SSHHandler {
                     );
 
                     if (rc == SSH_OK) {
+                        println("Forwarding channel opened for 30 seconds")
+                        sleep(30u)
                         callback(localPort)
                     } else {
                         println("Failed to open forward channel $tHost:$tPort $rc: ${ssh_get_error(session)?.toKStringFromUtf8()}")
