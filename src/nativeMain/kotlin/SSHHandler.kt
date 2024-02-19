@@ -1,5 +1,6 @@
 @file:OptIn(ExperimentalForeignApi::class)
 
+import io.ktor.utils.io.charsets.*
 import kotlinx.cinterop.*
 import org.ssh.*
 import platform.posix.size_tVar
@@ -9,7 +10,7 @@ import platform.posix.sleep
 @OptIn(ExperimentalForeignApi::class)
 class SSHHandler {
 
-    fun createSSHConnection(sshdHost: String, sshdUser: String, tHost: String, tPort: Int, callback: (Int) -> Unit) =
+    fun createSSHConnection(sshdHost: String, sshdUser: String, tHost: String, tPort: Int, callback: (Int,String) -> Unit) =
         memScoped {
             val ms = this
 
@@ -69,22 +70,53 @@ class SSHHandler {
                 val forwarding_channel = ssh_channel_new(session)
                 if (forwarding_channel == null) {
                     println("Failed to create forwarding channel, is null")
-                    callback(-1)
+                    callback(-1,"error")
 
                 } else {
                     rc = ssh_channel_open_forward(
                         forwarding_channel,
-                        tHost, tPort,
+                        "www.google.com", 80,
                         "localhost", localPort
                     );
 
                     if (rc == SSH_OK) {
-                        println("Forwarding channel opened for 30 seconds")
-                        sleep(30u)
-                        callback(localPort)
+                        println("\n\nForwarding channel opened for 30 seconds")
+                        val getRequest = """
+                            GET / HTTP/1.1
+                            Host: www.google.com
+                            Connection: close
+                            
+                        """.trimIndent()
+                        println( getRequest)
+                        val written = ssh_channel_write(forwarding_channel, getRequest.utf8.ptr, getRequest.length.toUInt())
+                        println("Written $written, sent ${getRequest.length}")
+                        ssh_channel_send_eof(forwarding_channel)
+
+                        val isOpen = ssh_channel_is_open(forwarding_channel)
+                        println("Channel open: $isOpen")
+                        val bufferLength = 4096
+                        val buffer = allocArray<ByteVar>(bufferLength)
+                        var totalBytesRead = 0
+                        val stringBuilder = StringBuilder()
+                        var retryCount = 0
+                        do {
+                            println("reading ${retryCount}...")
+                            val bytesRead = ssh_channel_read(forwarding_channel, buffer, bufferLength.toUInt(), 0)
+                            if (bytesRead > 0) {
+                                retryCount = 1000
+                                // Assuming the buffer contains text data; adjust for binary data as needed
+                                val readString = buffer.readBytes(bytesRead).toString()
+                                stringBuilder.append(readString)
+                                totalBytesRead += bytesRead
+                            }else{
+                                retryCount++
+                                sleep(1.toUInt())
+                            }
+                        } while (bytesRead > 0 || retryCount < 5)
+                        println("Read $totalBytesRead bytes: ${stringBuilder}")
+                        callback(localPort,stringBuilder.toString())
                     } else {
                         println("Failed to open forward channel $tHost:$tPort $rc: ${ssh_get_error(session)?.toKStringFromUtf8()}")
-                        callback(-1)
                     }
                 }
                 ssh_channel_free(forwarding_channel);

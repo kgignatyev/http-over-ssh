@@ -92,7 +92,7 @@ fun Application.module() {
                 targetHostParts[1].toInt()
             }
             val coroutineScope = CoroutineScope(coroutineContext)
-            sshHandler.createSSHConnection(sshdHost,sshdUser, tHost, tPort) { pfPort ->
+            sshHandler.createSSHConnection(sshdHost,sshdUser, tHost, tPort) { pfPort, response ->
                 println("Port forwarding to $pfPort")
                 if (pfPort == -1) {
                     coroutineScope.launch {
@@ -104,8 +104,7 @@ fun Application.module() {
                         val urlToCall = "http://localhost:$pfPort$uriToCall"
                         println("calling $urlToCall \n")
                         coroutineScope.launch {
-                            val response = client.get(urlToCall)
-                            call.respondText(response.bodyAsText())
+                            call.respondText(response)
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
